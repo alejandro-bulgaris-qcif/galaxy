@@ -53,6 +53,7 @@ from galaxy.tools.actions.data_source import DataSourceToolAction
 from galaxy.tools.actions.model_operations import ModelOperationToolAction
 from galaxy.tools.cache import ToolDocumentCache
 from galaxy.tools.imp_exp import JobImportHistoryArchiveWrapper
+from galaxy.tools.imp_exp import JobUploadFileToHistoryWrapper
 from galaxy.tools.parameters import (
     check_param,
     params_from_strings,
@@ -202,7 +203,7 @@ WORKFLOW_SAFE_TOOL_VERSION_UPDATES = {
     '__BUILD_LIST__': safe_update(packaging.version.parse("1.0.0"), packaging.version.parse("1.0.1")),
     '__APPLY_RULES__': safe_update(packaging.version.parse("1.0.0"), packaging.version.parse("1.1.0")),
     '__EXTRACT_DATASET__': safe_update(packaging.version.parse("1.0.0"), packaging.version.parse("1.0.1")),
-    'Grep1': safe_update(packaging.version.parse("1.0.1"), packaging.version.parse("1.0.2")),
+    'Grep1': safe_update(packaging.version.parse("1.0.1"), packaging.version.parse("1.0.3")),
     'Show beginning1': safe_update(packaging.version.parse("1.0.0"), packaging.version.parse("1.0.1")),
     'Show tail1': safe_update(packaging.version.parse("1.0.0"), packaging.version.parse("1.0.1")),
 }
@@ -2664,6 +2665,16 @@ class ImportHistoryTool(Tool):
         if final_job_state != DETECTED_JOB_STATE.OK:
             return
         JobImportHistoryArchiveWrapper(self.app, job.id).cleanup_after_job()
+
+
+class UploadHistoryTool(Tool):
+    tool_type = 'upload_history'
+
+    def exec_after_process(self, app, inp_data, out_data, param_dict, job, final_job_state=None, **kwds):
+        super().exec_after_process(app, inp_data, out_data, param_dict, job=job, **kwds)
+        if final_job_state != DETECTED_JOB_STATE.OK:
+            return
+        JobUploadFileToHistoryWrapper(self.app, job.id, param_dict['__URL__']).cleanup_after_job()
 
 
 class InteractiveTool(Tool):

@@ -181,6 +181,40 @@ class ModelImportStore(metaclass=abc.ABCMeta):
         self._import_jobs(object_import_tracker, history)
         self._import_implicit_collection_jobs(object_import_tracker)
         self._flush()
+        
+    
+    def perform_import_light(self, history=None, new_history=False, file_name=None, name=None, url=None, job=None):
+        object_import_tracker = ObjectImportTracker()
+        file_simple_name, file_extension = os.path.splitext(file_name)
+        datasets_attrs = [{
+                            "annotation": None, 
+                            "blurb": "Number of sequences not available", 
+                            "deleted": False, 
+                            "designation": None, 
+                            "extension": file_extension,
+                            "file_name": file_name, 
+                            "hid": "1", 
+                            "info": "\nImported from BPA Data Portal\n"+url,
+                            "metadata": {"data_lines": "0", "dbkey": "?","sequences": "0", "simple_name": file_simple_name}, 
+                            "model_class": "HistoryDatasetAssociation",
+                            "name": name,  
+                            "peek": "",
+                            "state": "ok",
+                            "visible": True
+                            }]
+        
+        collections_attrs = []
+        self._import_datasets(object_import_tracker, datasets_attrs, history, new_history, job)
+        self._import_dataset_copied_associations(object_import_tracker, datasets_attrs)
+        self._import_libraries(object_import_tracker)
+        self._import_collection_instances(object_import_tracker, collections_attrs, history, new_history)
+        self._import_collection_implicit_input_associations(object_import_tracker, collections_attrs)
+        self._import_collection_copied_associations(object_import_tracker, collections_attrs)
+        self._reassign_hids(object_import_tracker, history)
+        self._import_jobs(object_import_tracker, history)
+        self._import_implicit_collection_jobs(object_import_tracker)
+        self._flush()
+        
 
     def _import_datasets(self, object_import_tracker, datasets_attrs, history, new_history, job):
         object_key = self.object_key
@@ -302,7 +336,7 @@ class ModelImportStore(metaclass=abc.ABCMeta):
                         dataset_instance.hid = dataset_attrs['hid']
                     else:
                         object_import_tracker.requires_hid.append(dataset_instance)
-
+                        
                 self._flush()
                 if 'dataset' in dataset_attrs:
                     handle_dataset_object_edit(dataset_instance)
@@ -375,7 +409,7 @@ class ModelImportStore(metaclass=abc.ABCMeta):
                     else:
                         assert 'id' in dataset_attrs
                         object_import_tracker.lddas_by_key[dataset_attrs['id']] = dataset_instance
-
+                
     def _import_libraries(self, object_import_tracker):
         object_key = self.object_key
 

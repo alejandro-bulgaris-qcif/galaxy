@@ -7,12 +7,73 @@ from galaxy.job_execution.setup import create_working_directory_for_job
 from galaxy.tools.actions import ToolAction
 from galaxy.tools.imp_exp import (
     JobExportHistoryArchiveWrapper,
-    JobImportHistoryArchiveWrapper
+    JobImportHistoryArchiveWrapper,
+    JobUploadFileToHistoryWrapper
 )
 from galaxy.util import ready_name_for_url
 
 log = logging.getLogger(__name__)
 
+
+class UploadFileToHistoryToolAction(ToolAction):
+    """Tool action used for uploading a file into a user history. """
+    produces_real_jobs = True
+
+    def execute(self, tool, trans, incoming=None, set_output_hid=False, overwrite=True, history=None, **kwargs):
+        #
+        # Create job.
+        #
+        incoming = incoming or {}
+        trans.check_user_activation()
+        job = trans.app.model.Job()
+        job.galaxy_version = trans.app.config.version_major
+        session = trans.get_galaxy_session()
+        job.session_id = session and session.id
+        
+        if history:
+            history_id = history.id
+        elif trans.history:
+            history_id = trans.history.id
+        else:
+            history_id = None
+
+        job.history_id = history_id
+        job.tool_id = tool.id
+        job.user_id = trans.user.id
+        start_job_state = job.state  # should be job.states.NEW
+        job.state = job.states.WAITING  # we need to set job state to something other than NEW, or else when tracking jobs in db it will be picked up before we have added input / output parameters
+        trans.sa_session.add(job)
+        trans.sa_session.flush()  # ensure job.id are available
+
+        #
+        # Setup job and job wrapper.
+        #
+        # Add association for keeping track of job, history relationship.
+        # Use abspath because mkdtemp() does not, contrary to the documentation,
+        # always return an absolute path.
+        archive_dir = os.path.abspath(tempfile.mkdtemp())
+        # TODO is it required to use a different model class? like i.e. model.JobUploadFileToHistory ?
+        jiha = trans.app.model.JobImportHistoryArchive(job=job, archive_dir=archive_dir)
+        trans.sa_session.add(jiha)
+
+        job_wrapper = JobUploadFileToHistoryWrapper(trans.app, job, incoming['__URL__'])
+        job_wrapper.setup_job(jiha, incoming['__URL__'], incoming["__SOURCE_TYPE__"], incoming["__TOKEN_NAME__"], incoming["__TOKEN_KEY__"])
+
+        #
+        # Add parameters to job_parameter table.
+        #
+        # Set additional parameters.
+        incoming['__DEST_DIR__'] = jiha.archive_dir
+        for name, value in tool.params_to_strings(incoming, trans.app).items():
+            job.add_parameter(name, value)
+
+        job.state = start_job_state  # job inputs have been configured, restore initial job state
+
+        # Queue the job for execution
+        trans.app.job_manager.enqueue(job, tool=tool)
+        trans.log_event("Added upload file to history job to the job queue, id: %s" % str(job.id), tool_id=job.tool_id)
+
+        return job, {}
 
 class ImportHistoryToolAction(ToolAction):
     """Tool action used for importing a history to an archive. """

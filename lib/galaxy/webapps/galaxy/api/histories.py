@@ -334,6 +334,7 @@ class HistoriesController(BaseGalaxyAPIController, ExportsHistoryMixin, ImportsH
         :rtype:     dict
         :returns:   element view of new history
         """
+
         if trans.user.bootstrap_admin_user:
             raise exceptions.RealUserRequiredException("Only real users can create histories.")
         hist_name = None
@@ -346,16 +347,32 @@ class HistoriesController(BaseGalaxyAPIController, ExportsHistoryMixin, ImportsH
         if "archive_source" in payload:
             archive_source = payload["archive_source"]
             archive_file = payload.get("archive_file")
+            token_name = ''
+            token_key = ''
+            try:
+                token_name = payload["token_name"]
+                token_key = payload["token_key"]
+            except Exception as excpetion:
+                log.debug("No token and key present continue")
+
             if archive_source:
-                archive_type = payload.get("archive_type", "url")
+                if token_name and token_key:
+                    archive_type = payload.get("archive_type", "url")
+                    new_history = self.manager.create(user=trans.user, name="BPA Data Portal History Import")
+                    trans.app.security_agent.history_set_default_permissions(new_history)
+                    trans.sa_session.add(new_history)
+                    trans.sa_session.flush()
+                else:
+                    archive_type = payload.get("archive_type", "url")
             elif hasattr(archive_file, "file"):
                 archive_source = payload["archive_file"].file.name
                 archive_type = "file"
             else:
                 raise exceptions.MessageException("Please provide a url or file.")
-            job = self.queue_history_import(trans, archive_type=archive_type, archive_source=archive_source)
+            job = self.queue_history_import(trans, archive_type=archive_type, archive_source=archive_source, token_name=token_name, token_key=token_key, history=new_history)
             job_dict = job.to_dict()
             job_dict["message"] = "Importing history from source '%s'. This history will be visible when the import is complete." % archive_source
+
             return trans.security.encode_all_ids(job_dict)
 
         new_history = None
@@ -370,6 +387,7 @@ class HistoriesController(BaseGalaxyAPIController, ExportsHistoryMixin, ImportsH
         else:
             new_history = self.manager.create(user=trans.user, name=hist_name)
 
+        
         trans.app.security_agent.history_set_default_permissions(new_history)
         trans.sa_session.add(new_history)
         trans.sa_session.flush()

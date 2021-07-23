@@ -442,11 +442,16 @@ class ExportsHistoryMixin:
 
 class ImportsHistoryMixin:
 
-    def queue_history_import(self, trans, archive_type, archive_source):
+    def queue_history_import(self, trans, archive_type, archive_source, token_name, token_key, history):
         # Run job to do import.
-        history_imp_tool = trans.app.toolbox.get_tool('__IMPORT_HISTORY__')
-        incoming = {'__ARCHIVE_SOURCE__': archive_source, '__ARCHIVE_TYPE__': archive_type}
-        job, _ = history_imp_tool.execute(trans, incoming=incoming)
+        if token_name and token_key:
+            history_imp_tool = trans.app.toolbox.get_tool('__UPLOAD_HISTORY__')
+            incoming = {'__URL__': archive_source, '__SOURCE_TYPE__': archive_type, '__TOKEN_NAME__': token_name, '__TOKEN_KEY__': token_key}
+            job, _ = history_imp_tool.execute(trans, incoming=incoming, history=history)
+        else:
+            history_imp_tool = trans.app.toolbox.get_tool('__IMPORT_HISTORY__')
+            incoming = {'__URL__': archive_source, '__SOURCE_TYPE__': archive_type}
+            job, _ = history_imp_tool.execute(trans, incoming=incoming)
         return job
 
 

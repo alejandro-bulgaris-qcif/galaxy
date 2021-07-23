@@ -15,6 +15,7 @@ import sys
 import tempfile
 import urllib.request
 import zipfile
+import requests
 
 from galaxy import util
 from galaxy.util import compression_utils
@@ -46,7 +47,6 @@ def sniff_with_cls(cls, fname):
     except Exception:
         return False
 
-
 def stream_url_to_file(path, file_sources=None):
     prefix = "url_paste"
     if file_sources and file_sources.looks_like_uri(path):
@@ -56,10 +56,38 @@ def stream_url_to_file(path, file_sources=None):
         file_source_path.file_source.realize_to(file_source_path.path, temp_name)
         return temp_name
     else:
-        page = urllib.request.urlopen(path)  # page will be .close()ed in stream_to_file
+        page = urllib.request.urlopen(path, timeout=util.DEFAULT_SOCKET_TIMEOUT)  # page will be .close()ed in stream_to_file
         temp_name = stream_to_file(page, prefix=prefix, source_encoding=util.get_charset_from_http_headers(page.headers))
         return temp_name
 
+def stream_url_to_file_with_token(url, token_name, token_key, user_agent):
+    prefix = "url_paste"
+    CHUNK_SIZE = 8192 # 1048576 TODO what's the best chuck size value to use?
+    
+    headers = requests.utils.default_headers()
+    headers.update({"User-Agent": user_agent, token_name: token_key})
+
+    resGet = requests.get(url, stream=True, headers=headers)
+    file_size = int(resGet.headers["Content-length"])
+    
+    if file_size > 0:
+        fd, temp_name = tempfile.mkstemp(suffix='', prefix=prefix, dir=None, text=False)
+
+        try:
+            with requests.get(url, stream=True, headers=headers) as r:
+                r.raise_for_status()
+                with open(temp_name, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
+                        f.write(chunk)
+                        os.write(fd, chunk)
+        except requests.exceptions.HTTPError as exception:
+            temp_name = None
+
+        os.close(fd)
+    else:
+        temp_name = None
+
+    return temp_name
 
 def stream_to_open_named_file(stream, fd, filename, source_encoding=None, source_error='strict', target_encoding=None, target_error='strict'):
     """Writes a stream to the provided file descriptor, returns the file name. Closes file descriptor"""

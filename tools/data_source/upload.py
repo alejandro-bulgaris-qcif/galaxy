@@ -81,6 +81,9 @@ def add_file(dataset, registry, output_path):
     ext = None
     compression_type = None
     line_count = None
+    print("========================================================================")
+    print("================ tools/data_source/upload.py add_file ==================")
+    print("========================================================================")
     link_data_only_str = dataset.get('link_data_only', 'copy_files')
     if link_data_only_str not in ['link_to_files', 'copy_files']:
         raise UploadProblemException("Invalid setting '%s' for option link_data_only - upload request misconfigured" % link_data_only_str)
@@ -215,6 +218,11 @@ def add_composite_file(dataset, registry, output_path, files_path):
     def stage_file(name, composite_file_path, is_binary=False):
         dp = composite_file_path['path']
         path, isa_url = to_path(dp)
+        
+        print("========================================================================")
+        print("================ tools/data_source/upload.py stage_file ==================")
+        print("========================================================================")
+        
         if isa_url:
             dataset.path = path
             dp = path
@@ -308,6 +316,9 @@ def __main__():
         print('usage: upload.py <root> <datatypes_conf> <json paramfile> <output spec> ...', file=sys.stderr)
         sys.exit(1)
 
+    print("========================================================================")
+    print("================ tools/data_source/upload.py __main__ ==================")
+    print("========================================================================")
     output_paths = parse_outputs(sys.argv[4:])
 
     registry = Registry()

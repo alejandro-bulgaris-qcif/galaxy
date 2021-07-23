@@ -7,6 +7,7 @@ SPECIAL_TOOLS = {
     "history export": "imp_exp/exp_history_to_archive.xml",
     "history export to uri": "imp_exp/exp_history_to_uri.xml",
     "history import": "imp_exp/imp_history_from_archive.xml",
+    "history upload": "imp_exp/upload_file_to_history.xml",
     "data fetch": "data_fetch.xml",
 }
 
